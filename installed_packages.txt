@@ -1,0 +1,12 @@
+base-files
+busybox
+libc
+libgcc1
+libubox20191228
+libuci20130104
+procd
+ubox
+ubus
+ubusd
+uci
+uclient-fetch

@@ -9,16 +9,15 @@ rm -f /tmp/update_mod.tar.gz
 
 # Unduh paket mod menggunakan curl IPv4 (fallback ke wget jika curl belum ada)
 if command -v curl >/dev/null 2>&1; then
-    curl -4 -sL --retry 3 --retry-delay 2 --connect-timeout 15 -k -o /tmp/update_mod.tar.gz "$DOWNLOAD_URL"
+    curl -4 -fsL --retry 3 --retry-delay 2 --connect-timeout 15 -k -o /tmp/update_mod.tar.gz "$DOWNLOAD_URL"
 else
     wget -qO /tmp/update_mod.tar.gz -T 20 --no-check-certificate "$DOWNLOAD_URL"
 fi
 
-if [ -s /tmp/update_mod.tar.gz ]; then
-    tar -xzf /tmp/update_mod.tar.gz -C /
+if tar -xzf /tmp/update_mod.tar.gz -C / 2>/dev/null; then
     rm -f /tmp/update_mod.tar.gz
 else
-    echo "Gagal mengunduh paket update dari GitHub."
+    echo "Gagal mengunduh atau mengekstrak paket update dari GitHub."
     rm -f /tmp/update_mod.tar.gz
     exit 1
 fi

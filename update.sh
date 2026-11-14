@@ -4,14 +4,22 @@ echo "Memulai proses update WoobZ-WRT..."
 # Cadangkan lisensi pembeli agar tidak terkunci ulang setelah update
 [ -f /etc/config/woobz_license ] && cp /etc/config/woobz_license /tmp/woobz_license.bak
 
-# Unduh paket mod dari link Release GitHub Anda
-wget -qO /tmp/update_mod.tar.gz --no-check-certificate "https://github.com/WoobZ-WRT/Aw1000ultra/releases/download/v1.0/aw1000_ultra_mod.tar.gz"
+DOWNLOAD_URL="https://github.com/WoobZ-WRT/Aw1000ultra/releases/latest/download/aw1000_ultra_mod.tar.gz"
+rm -f /tmp/update_mod.tar.gz
+
+# Unduh paket mod menggunakan curl IPv4 (fallback ke wget jika curl belum ada)
+if command -v curl >/dev/null 2>&1; then
+    curl -4 -sL --retry 3 --retry-delay 2 --connect-timeout 15 -k -o /tmp/update_mod.tar.gz "$DOWNLOAD_URL"
+else
+    wget -qO /tmp/update_mod.tar.gz -T 20 --no-check-certificate "$DOWNLOAD_URL"
+fi
 
 if [ -s /tmp/update_mod.tar.gz ]; then
     tar -xzf /tmp/update_mod.tar.gz -C /
     rm -f /tmp/update_mod.tar.gz
 else
-    echo "Gagal mengunduh paket update."
+    echo "Gagal mengunduh paket update dari GitHub."
+    rm -f /tmp/update_mod.tar.gz
     exit 1
 fi
 

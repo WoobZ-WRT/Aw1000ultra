@@ -44,23 +44,20 @@ DOWNLOAD_URL="https://github.com/WoobZ-WRT/Aw1000ultra/releases/latest/download/
 rm -f "$BACKUP_FILE"
 echo -e "${YELLOW}Mengunduh file modifikasi dari GitHub server...${NC}"
 
-# Gunakan curl IPv4 (-4), ikuti redirect (-L), dan ulangi otomatis 3x jika jaringan tersendat
 if command -v curl >/dev/null 2>&1; then
-    curl -4 -L --retry 3 --retry-delay 3 --connect-timeout 15 -k -o "$BACKUP_FILE" "$DOWNLOAD_URL"
+    curl -4 -fL --retry 3 --retry-delay 3 --connect-timeout 15 -k -o "$BACKUP_FILE" "$DOWNLOAD_URL"
 else
     wget --no-check-certificate -T 20 -O "$BACKUP_FILE" "$DOWNLOAD_URL"
 fi
 
-# Mengecek apakah file berhasil diunduh dan ukurannya tidak 0 byte (-s)
-if [ ! -s "$BACKUP_FILE" ]; then
-    echo -e "${RED}ERROR: Gagal mengunduh file aw1000_ultra_mod.tar.gz dari server!${NC}"
-    echo -e "${YELLOW}Pastikan modem memiliki koneksi internet aktif yang stabil.${NC}"
+echo -e "${YELLOW}Menerapkan struktur folder...${NC}"
+if ! tar -xzf "$BACKUP_FILE" -C /; then
+    echo -e "${RED}ERROR: Gagal mengunduh atau mengekstrak file aw1000_ultra_mod.tar.gz!${NC}"
+    echo -e "${YELLOW}Pastikan koneksi internet stabil dan nama aset di GitHub Releases sudah sesuai.${NC}"
     rm -f "$BACKUP_FILE"
     exit 1
 fi
 
-echo -e "${YELLOW}Menerapkan struktur folder...${NC}"
-tar -xzf "$BACKUP_FILE" -C / > /dev/null 2>&1
 rm -f "$BACKUP_FILE"
 
 # Pastikan penanda versi awal tersedia

@@ -37,7 +37,7 @@ echo ""
 # ------------------------------------------------------------------------------
 echo -e "${CYAN}[2/5] Mengunduh dan menerapkan file sistem modifikasi...${NC}"
 BACKUP_FILE="aw1000_ultra_mod.tar.gz"
-DOWNLOAD_URL="https://raw.githubusercontent.com/WoobZ-WRT/Aw1000ultra/refs/heads/main/aw1000_ultra_mod.tar.gz"
+DOWNLOAD_URL="https://github.com/WoobZ-WRT/Aw1000ultra/releases/download/v1.0/aw1000_ultra_mod.tar.gz"
 
 echo -e "${YELLOW}Mengunduh file modifikasi dari GitHub server...${NC}"
 # Masuk ke folder /tmp sementara untuk mengunduh

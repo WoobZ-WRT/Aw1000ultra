@@ -22,11 +22,16 @@ else
     exit 1
 fi
 
+# Atur permission file dan folder tampilan terminal
+chmod 664 /etc/profile
+chmod 775 /etc/profile.d
+chmod 775 /etc/profile.d/*
+
 # Kembalikan lisensi pembeli & perbarui nomor versi
 [ -f /tmp/woobz_license.bak ] && mv /tmp/woobz_license.bak /etc/config/woobz_license
-echo "1.0" > /etc/aw1kv2_version
+echo "1.1" > /etc/aw1kv2_version
 
 rm -rf /tmp/luci-indexcache* /tmp/luci-modulecache/
 /etc/init.d/uhttpd restart
 
-echo "Update ke v1.0 berhasil! Silakan refresh halaman browser Anda."
+echo "Update ke v1.1 berhasil! Silakan refresh halaman browser Anda."

@@ -31,7 +31,11 @@ chmod 775 /etc/profile.d/*
 [ -f /tmp/woobz_license.bak ] && mv /tmp/woobz_license.bak /etc/config/woobz_license
 echo "1.1" > /etc/aw1kv2_version
 
+# Bersihkan cache LuCI tanpa memutus koneksi web
 rm -rf /tmp/luci-indexcache* /tmp/luci-modulecache/
-/etc/init.d/uhttpd restart
 
-echo "Update ke v1.1 berhasil! Silakan refresh halaman browser Anda."
+echo "=========================================="
+echo "  SELAMAT! UPDATE KE v1.1 BERHASIL!       "
+echo "  Silakan refresh halaman browser Anda.   "
+echo "=========================================="
+exit 0

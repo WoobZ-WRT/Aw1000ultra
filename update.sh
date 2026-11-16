@@ -1,6 +1,4 @@
 #!/bin/sh
-echo "Memulai proses update WoobZ-WRT..."
-
 # Cadangkan lisensi pembeli agar tidak terkunci ulang setelah update
 [ -f /etc/config/woobz_license ] && cp /etc/config/woobz_license /tmp/woobz_license.bak
 
@@ -35,7 +33,7 @@ echo "1.1" > /etc/aw1kv2_version
 rm -rf /tmp/luci-indexcache* /tmp/luci-modulecache/
 
 echo "=========================================="
-echo "  SELAMAT! UPDATE KE v1.1 BERHASIL!       "
-echo "  Silakan refresh halaman browser Anda.   "
+echo "  SUCCESS! Updated to v1.1.               "
+echo "  Please refresh your browser.            "
 echo "=========================================="
 exit 0

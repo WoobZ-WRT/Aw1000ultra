@@ -16,17 +16,17 @@ echo -e "${CYAN}====================================================${NC}"
 echo ""
 
 # ------------------------------------------------------------------------------
-# TAHAP 1: UPDATE & INSTALASI PAKET PENDUKUNG (Curl, Theme & PHP)
+# TAHAP 1: UPDATE & INSTALASI PAKET PENDUKUNG
 # ------------------------------------------------------------------------------
 echo -e "${CYAN}[1/5] Memperbarui repositori dan menginstal paket sistem...${NC}"
 
-# Alihkan server OpenWrt 19.07.7 (EOL) ke archive.openwrt.org & nonaktifkan feed mati
+
 sed -i 's|downloads.openwrt.org|archive.openwrt.org|g' /etc/opkg/distfeeds.conf
 sed -i 's|aarch64_cortex-a55_neon-vfpv4|aarch64_generic|g' /etc/opkg/distfeeds.conf
 sed -i '/mt6890/s/^/#/' /etc/opkg/distfeeds.conf
 sed -i '/lienol/s/^/#/' /etc/opkg/distfeeds.conf
 
-# Daftarkan seluruh arsitektur yang didukung agar paket tema (all/noarch) & sistem terbaca
+
 grep -q "arch all" /etc/opkg.conf || echo "arch all 1" >> /etc/opkg.conf
 grep -q "arch noarch" /etc/opkg.conf || echo "arch noarch 1" >> /etc/opkg.conf
 grep -q "arch aarch64_generic" /etc/opkg.conf || echo "arch aarch64_generic 10" >> /etc/opkg.conf
@@ -79,9 +79,7 @@ rm -f "$BACKUP_FILE"
 echo -e "${GREEN}File modifikasi berhasil diterapkan!${NC}"
 echo ""
 
-# ------------------------------------------------------------------------------
-# TAHAP 3: MEMBUAT SCRIPT AUTO REFRESH IP (cek_wan.sh)
-# ------------------------------------------------------------------------------
+
 echo -e "${CYAN}[3/5] Memasang sistem Auto-Refresh IP (Ping Monitor)...${NC}"
 
 cat << 'EOF' > /root/cek_wan.sh

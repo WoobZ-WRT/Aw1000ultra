@@ -26,8 +26,11 @@ sed -i 's|aarch64_cortex-a55_neon-vfpv4|aarch64_generic|g' /etc/opkg/distfeeds.c
 sed -i '/mt6890/s/^/#/' /etc/opkg/distfeeds.conf
 sed -i '/lienol/s/^/#/' /etc/opkg/distfeeds.conf
 
-# Izinkan opkg memasang paket arsitektur aarch64_generic
+# Daftarkan seluruh arsitektur yang didukung agar paket tema (all/noarch) & sistem terbaca
+grep -q "arch all" /etc/opkg.conf || echo "arch all 1" >> /etc/opkg.conf
+grep -q "arch noarch" /etc/opkg.conf || echo "arch noarch 1" >> /etc/opkg.conf
 grep -q "arch aarch64_generic" /etc/opkg.conf || echo "arch aarch64_generic 10" >> /etc/opkg.conf
+grep -q "arch aarch64_cortex-a55_neon-vfpv4" /etc/opkg.conf || echo "arch aarch64_cortex-a55_neon-vfpv4 20" >> /etc/opkg.conf
 
 opkg update
 

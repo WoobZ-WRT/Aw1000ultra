@@ -19,6 +19,16 @@ echo ""
 # TAHAP 1: UPDATE & INSTALASI PAKET PENDUKUNG (Curl, Theme & PHP)
 # ------------------------------------------------------------------------------
 echo -e "${CYAN}[1/5] Memperbarui repositori dan menginstal paket sistem...${NC}"
+
+# Alihkan server OpenWrt 19.07.7 (EOL) ke archive.openwrt.org & nonaktifkan feed mati
+sed -i 's|downloads.openwrt.org|archive.openwrt.org|g' /etc/opkg/distfeeds.conf
+sed -i 's|aarch64_cortex-a55_neon-vfpv4|aarch64_generic|g' /etc/opkg/distfeeds.conf
+sed -i '/mt6890/s/^/#/' /etc/opkg/distfeeds.conf
+sed -i '/lienol/s/^/#/' /etc/opkg/distfeeds.conf
+
+# Izinkan opkg memasang paket arsitektur aarch64_generic
+grep -q "arch aarch64_generic" /etc/opkg.conf || echo "arch aarch64_generic 10" >> /etc/opkg.conf
+
 opkg update
 
 echo -e "${YELLOW}Menginstal curl & sertifikat SSL (anti-timeout GitHub)...${NC}"
@@ -122,7 +132,7 @@ chmod -R 755 /www/cgi-bin
 chmod -R 755 /www/luci-static
 
 mkdir -p /www/tinyfm/rootfs
-mount --rbind / /www/tinyfm/rootfs
+grep -q "/www/tinyfm/rootfs" /proc/mounts || mount --rbind / /www/tinyfm/rootfs
 
 grep -q "mount --rbind / /www/tinyfm/rootfs" /etc/rc.local || sed -i '/exit 0/i mount --rbind / /www/tinyfm/rootfs' /etc/rc.local
 

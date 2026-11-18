@@ -151,6 +151,15 @@ rm -rf /tmp/luci-indexcache* /tmp/luci-modulecache/
 /etc/init.d/uhttpd restart
 /etc/init.d/network restart > /dev/null 2>&1
 
+opkg update >/dev/null 2>&1
+opkg install php7 php7-cgi >/dev/null 2>&1
+if [ -x /usr/bin/php-cgi ]; then
+    grep -q "\.php=/usr/bin/php-cgi" /etc/config/uhttpd || uci add_list uhttpd.main.interpreter='.php=/usr/bin/php-cgi'
+    uci commit uhttpd
+    /etc/init.d/uhttpd restart
+fi
+
+
 echo -e "${CYAN}====================================================${NC}"
 echo -e "${GREEN}  INSTALLATION COMPLETED SUCCESSFULLY!              ${NC}"
 echo -e "${YELLOW}  Please refresh your web browser page.             ${NC}"

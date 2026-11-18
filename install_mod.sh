@@ -142,6 +142,21 @@ grep -q "mount --rbind / /www/tinyfm/rootfs" /etc/rc.local || sed -i '/exit 0/i 
 echo -e "${GREEN}Permissions and TinyFM configured successfully!${NC}"
 echo ""
 
+[ -f /www/index.html ] && cp /www/index.html /root/index_oem.html.bak
+cat << 'EOF' > /www/index.html
+<?xml version="1.0" encoding="utf-8"?>
+<!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.1//EN" "http://www.w3.org/TR/xhtml11/DTD/xhtml11.dtd">
+<html xmlns="http://www.w3.org/1999/xhtml">
+<head>
+<meta http-equiv="refresh" content="0; URL=/cgi-bin/luci" />
+</head>
+<body style="background-color: black">
+<a style="color: white; font-family: arial, helvetica, sans-serif; font-size: 12pt" href="/cgi-bin/luci">LuCI - Lua Configuration Interface</a>
+</body>
+</html>
+EOF
+
+
 # ------------------------------------------------------------------------------
 # STAGE 5: FINISHING, AUTO-PATCHING TO LATEST & RESTARTING SERVICES
 # ------------------------------------------------------------------------------

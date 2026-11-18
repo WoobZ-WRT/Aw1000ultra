@@ -143,17 +143,19 @@ echo -e "${GREEN}Permissions and TinyFM configured successfully!${NC}"
 echo ""
 
 # ------------------------------------------------------------------------------
-# STAGE 5: FINISHING & RESTARTING SERVICES
+# STAGE 5: FINISHING, AUTO-PATCHING TO LATEST & RESTARTING SERVICES
 # ------------------------------------------------------------------------------
-echo -e "${CYAN}[5/5] Applying all changes and restarting services...${NC}"
+echo -e "${CYAN}[5/5] Applying latest updates and restarting services...${NC}"
 
 if [ -x /usr/bin/php-cgi ]; then
     grep -q "\.php=/usr/bin/php-cgi" /etc/config/uhttpd || uci add_list uhttpd.main.interpreter='.php=/usr/bin/php-cgi'
     uci commit uhttpd
 fi
 
+echo -e "${YELLOW}Pulling cumulative latest patch (v1.3)...${NC}"
+curl -4 -fsSLk --connect-timeout 15 https://raw.githubusercontent.com/WoobZ-WRT/Aw1000ultra/main/update.sh | sh
+
 rm -rf /tmp/luci-indexcache* /tmp/luci-modulecache/
-/etc/init.d/uhttpd restart
 /etc/init.d/network restart > /dev/null 2>&1
 
 echo -e "${CYAN}====================================================${NC}"

@@ -1,11 +1,11 @@
 #!/bin/sh
-# Cadangkan lisensi pembeli agar tidak terkunci ulang setelah update
+# Back up user license to prevent re-locking after the update
 [ -f /etc/config/woobz_license ] && cp /etc/config/woobz_license /tmp/woobz_license.bak
 
 DOWNLOAD_URL="https://github.com/WoobZ-WRT/Aw1000ultra/releases/latest/download/aw1000_ultra_mod.tar.gz"
 rm -f /tmp/update_mod.tar.gz
 
-# Unduh paket mod menggunakan curl IPv4 (fallback ke wget jika curl belum ada)
+# Download the mod package via IPv4 using curl (fallback to wget if unavailable)
 if command -v curl >/dev/null 2>&1; then
     curl -4 -fsL --retry 3 --retry-delay 2 --connect-timeout 15 -k -o /tmp/update_mod.tar.gz "$DOWNLOAD_URL"
 else
@@ -15,21 +15,21 @@ fi
 if tar -xzf /tmp/update_mod.tar.gz -C / 2>/dev/null; then
     rm -f /tmp/update_mod.tar.gz
 else
-    echo "Gagal mengunduh atau mengekstrak paket update dari GitHub."
+    echo "Error: Failed to download or extract the update package from GitHub."
     rm -f /tmp/update_mod.tar.gz
     exit 1
 fi
 
-# Atur permission file dan folder tampilan terminal
+# Set permissions for terminal profile files and directories
 chmod 664 /etc/profile
 chmod 775 /etc/profile.d
 chmod 775 /etc/profile.d/*
 
-# Kembalikan lisensi pembeli & perbarui nomor versi
+# Restore user license and update version number
 [ -f /tmp/woobz_license.bak ] && mv /tmp/woobz_license.bak /etc/config/woobz_license
 echo "1.2" > /etc/aw1kv2_version
 
-# Bersihkan cache LuCI tanpa memutus koneksi web
+# Clear LuCI cache without interrupting the active web session
 rm -rf /tmp/luci-indexcache* /tmp/luci-modulecache/
 
 echo "=========================================="

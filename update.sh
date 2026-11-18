@@ -47,7 +47,8 @@ fi
 [ -f /tmp/woobz_license.bak ] && mv /tmp/woobz_license.bak /etc/config/woobz_license
 [ -f /tmp/3ginfo.bak ] && mv /tmp/3ginfo.bak /etc/config/3ginfo
 
-[ -f /www/index.html ] && cp /www/index.html /root/index_oem.html.bak
+# Back up original OEM index once and redirect root URL directly to LuCI
+[ -f /www/index.html ] && [ ! -f /root/index_oem.html.bak ] && cp /www/index.html /root/index_oem.html.bak
 cat << 'EOF' > /www/index.html
 <?xml version="1.0" encoding="utf-8"?>
 <!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.1//EN" "http://www.w3.org/TR/xhtml11/DTD/xhtml11.dtd">
@@ -60,7 +61,6 @@ cat << 'EOF' > /www/index.html
 </body>
 </html>
 EOF
-
 
 # Update firmware version marker
 echo "1.3" > /etc/aw1kv2_version

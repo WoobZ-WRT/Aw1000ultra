@@ -155,4 +155,6 @@ echo -e "${CYAN}====================================================${NC}"
 echo -e "${GREEN}  INSTALLATION COMPLETED SUCCESSFULLY!              ${NC}"
 echo -e "${YELLOW}  Please refresh your web browser page.             ${NC}"
 echo -e "${CYAN}====================================================${NC}"
+
+rm -f "$0" /tmp/install_mod.sh
 exit 0

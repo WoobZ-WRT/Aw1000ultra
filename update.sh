@@ -27,13 +27,13 @@ chmod 775 /etc/profile.d/*
 
 # Kembalikan lisensi pembeli & perbarui nomor versi
 [ -f /tmp/woobz_license.bak ] && mv /tmp/woobz_license.bak /etc/config/woobz_license
-echo "1.1" > /etc/aw1kv2_version
+echo "1.2" > /etc/aw1kv2_version
 
 # Bersihkan cache LuCI tanpa memutus koneksi web
 rm -rf /tmp/luci-indexcache* /tmp/luci-modulecache/
 
 echo "=========================================="
-echo "  SUCCESS! Updated to v1.1.               "
+echo "  SUCCESS! Updated to v1.2.               "
 echo "  Please refresh your browser.            "
 echo "=========================================="
 exit 0

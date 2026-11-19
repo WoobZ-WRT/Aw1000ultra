@@ -25,7 +25,8 @@ fi
 chmod 664 /etc/profile 2>/dev/null
 chmod 775 /etc/profile.d /etc/profile.d/* 2>/dev/null
 chmod -R 755 /usr/share/3ginfo-lite /etc/init.d/3ginfo* 2>/dev/null
-chmod +x /usr/bin/sms_tool /usr/bin/gcom /etc/hotplug.d/iface/99-3ginfo-autoset 2>/dev/null
+chmod +x /usr/bin/sms_tool /usr/bin/gcom /usr/bin/mipc_wan_cli /etc/hotplug.d/iface/99-3ginfo-autoset 2>/dev/null
+
 
 # Enable 3ginfo-lite background services
 /etc/init.d/3ginfo_autoset enable >/dev/null 2>&1

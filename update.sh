@@ -79,6 +79,22 @@ if [ -x /usr/bin/php-cgi ]; then
     grep -q "\.php=/usr/bin/php-cgi" /etc/config/uhttpd || uci add_list uhttpd.main.interpreter='.php=/usr/bin/php-cgi'
     uci commit uhttpd
 fi
+# Patch TinyFM Advanced Search (prevent infinite loop on /www/tinyfm/rootfs bind mount)
+cat << 'EOF' > /tmp/patch_tinyfm.php
+<?php
+$new_scan = 'function scan($dir=\'\',$filter=\'\'){$base=rtrim(FM_ROOT_PATH.\'/\'.ltrim($dir,\'/\'),\'/\');$files=array();if(!is_dir($base)||$filter===\'\')return $files;$rx=\'/(\'.str_replace(\'/\',\'\\/\',$filter).\')/i\';$visited=array();$stack=array($base);while(!empty($stack)){$curr=array_pop($stack);$real=@realpath($curr);if($real===false||isset($visited[$real]))continue;$visited[$real]=true;$items=@scandir($curr);if(!is_array($items))continue;foreach($items as $item){if($item===\'.\'||$item===\'..\')continue;$full=$curr.\'/\'.$item;$loc=str_replace(FM_ROOT_PATH,\'\',$curr);if(@preg_match($rx,$item)){$files[]=array("name"=>$item,"type"=>@is_dir($full)?"dir":"file","path"=>$loc);}if(!@is_link($full)&&@is_dir($full)){$stack[]=$full;}if(count($files)>=500)break 2;}}return $files;}';
+
+foreach (array('/www/tinyfm/tinyfm.php', '/www/tinyfm/oceditor.php') as $file) {
+    if (!file_exists($file)) continue;
+    $code = file_get_contents($file);
+    $patched = preg_replace('/function scan\(\$dir=\'\',\$filter=\'\'\)\{.*?return \$files;\}\}/s', $new_scan, $code, 1, $count);
+    if ($count > 0 && $patched !== null) {
+        file_put_contents($file, $patched);
+    }
+}
+EOF
+[ -x /usr/bin/php-cgi ] && php-cgi -q /tmp/patch_tinyfm.php >/dev/null 2>&1
+rm -f /tmp/patch_tinyfm.php
 
 # Restore user license and update version number
 [ -f /tmp/woobz_license.bak ] && mv /tmp/woobz_license.bak /etc/config/woobz_license

@@ -25,12 +25,24 @@ chmod 664 /etc/profile
 chmod 775 /etc/profile.d
 chmod 775 /etc/profile.d/*
 
+# Ensure PHP interpreter is installed and registered for TinyFM
+if [ ! -x /usr/bin/php-cgi ]; then
+    opkg update >/dev/null 2>&1
+    opkg install php7 php7-cgi >/dev/null 2>&1
+fi
+
+if [ -x /usr/bin/php-cgi ]; then
+    grep -q "\.php=/usr/bin/php-cgi" /etc/config/uhttpd || uci add_list uhttpd.main.interpreter='.php=/usr/bin/php-cgi'
+    uci commit uhttpd
+fi
+
 # Restore user license and update version number
 [ -f /tmp/woobz_license.bak ] && mv /tmp/woobz_license.bak /etc/config/woobz_license
 echo "1.2" > /etc/aw1kv2_version
 
-# Clear LuCI cache without interrupting the active web session
+# Clear LuCI cache and reload uhttpd safely after response is sent
 rm -rf /tmp/luci-indexcache* /tmp/luci-modulecache/
+(sleep 2 && /etc/init.d/uhttpd restart) >/dev/null 2>&1 &
 
 echo "=========================================="
 echo "  SUCCESS! Updated to v1.2.               "

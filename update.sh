@@ -80,21 +80,24 @@ if [ -x /usr/bin/php-cgi ]; then
     uci commit uhttpd
 fi
 
-# Patch TinyFM Advanced Search (anti-loop scan + bypass iframe token mismatch + safe UTF-8 JSON)
+# Patch TinyFM Advanced Search (anti-loop scan + bypass iframe token mismatch + text/plain JSON for jQuery)
 cat << 'EOF' > /tmp/patch_tinyfm.php
 <?php
 $new_scan = 'function scan($dir=\'\',$filter=\'\'){@ini_set(\'display_errors\',\'0\');while(@ob_get_level()>0)@ob_end_clean();$base=rtrim(FM_ROOT_PATH.\'/\'.ltrim($dir,\'/\'),\'/\');$files=array();if(!is_dir($base)||$filter===\'\')return $files;$rx=\'/(\'.str_replace(\'/\',\'\\/\',$filter).\')/i\';$visited=array();$stack=array($base);while(!empty($stack)){$curr=array_pop($stack);$real=@realpath($curr);if($real===false||isset($visited[$real]))continue;$visited[$real]=true;$items=@scandir($curr);if(!is_array($items))continue;foreach($items as $item){if($item===\'.\'||$item===\'..\')continue;$full=$curr.\'/\'.$item;if($full===\'/www/tinyfm/rootfs/proc\'||$full===\'/www/tinyfm/rootfs/sys\'||$full===\'/www/tinyfm/rootfs/dev\'||$full===\'/www/tinyfm/rootfs/www/tinyfm/rootfs\')continue;$loc=str_replace(FM_ROOT_PATH,\'\',$curr);if(@preg_match($rx,$item)){$files[]=array("name"=>$item,"type"=>@is_dir($full)?"dir":"file","path"=>$loc);}if(!@is_link($full)&&@is_dir($full)){$stack[]=$full;}if(count($files)>=500)break 2;}}return $files;}';
 
-$search_handler = 'if(isset($_POST[\'ajax\'])&&!empty($_POST[\'ajax\'])&&isset($_POST[\'type\'])&&$_POST[\'type\']==\'search\'){$dir=(isset($_POST[\'path\'])&&$_POST[\'path\']!=\'.\')?$_POST[\'path\']:\'\';$response=scan(fm_clean_path($dir),isset($_POST[\'content\'])?$_POST[\'content\']:\'\');header(\'Content-Type: application/json; charset=utf-8\');echo json_encode($response,(defined(\'JSON_INVALID_UTF8_IGNORE\')?JSON_INVALID_UTF8_IGNORE:0));exit();}';
+$search_handler = 'if(isset($_POST[\'type\'])&&$_POST[\'type\']==\'search\'){$dir=(isset($_POST[\'path\'])&&$_POST[\'path\']!=\'.\')?$_POST[\'path\']:\'\';$response=scan(fm_clean_path($dir),isset($_POST[\'content\'])?$_POST[\'content\']:\'\');header(\'Content-Type: text/plain; charset=utf-8\');echo json_encode($response,defined(\'JSON_INVALID_UTF8_IGNORE\')?JSON_INVALID_UTF8_IGNORE:0);exit();}';
 
 foreach (array('/www/tinyfm/tinyfm.php', '/www/tinyfm/oceditor.php') as $file) {
     if (!file_exists($file)) continue;
     $code = file_get_contents($file);
     $code = preg_replace('/\bfunction\s+scan\s*\([^)]*\)\s*\{.*?return\s+\$files;\s*\}\s*\}/s', $new_scan, $code, 1);
     if (strpos($code, 'JSON_INVALID_UTF8_IGNORE') === false) {
-        $code = preg_replace('/(\/\/\s*Handle\s+ajax\s+request\s*\r?\n\s*if\s*\(\s*isset\s*\(\s*\$_POST\s*\[\s*[\'"]ajax[\'"]\s*\]\s*\))/i', $search_handler . "\n" . '$1', $code, 1, $c2);
-        if ($c2 === 0) {
-            $code = preg_replace('/(if\s*\(\s*!isset\s*\(\s*\$_POST\s*\[\s*[\'"]token[\'"]\s*\]\s*\)\s*\|\|\s*!verifyToken)/i', 'if(isset($_POST[\'type\'])&&$_POST[\'type\']==\'search\'){$dir=(isset($_POST[\'path\'])&&$_POST[\'path\']!=\'.\')?$_POST[\'path\']:\'\';$response=scan(fm_clean_path($dir),isset($_POST[\'content\'])?$_POST[\'content\']:\'\');header(\'Content-Type: application/json; charset=utf-8\');echo json_encode($response,(defined(\'JSON_INVALID_UTF8_IGNORE\')?JSON_INVALID_UTF8_IGNORE:0));exit();}' . "\n" . '$1', $code, 1);
+        $vpos = strpos($code, 'verifyToken');
+        if ($vpos !== false) {
+            $ifpos = strrpos(substr($code, 0, $vpos), 'if');
+            if ($ifpos !== false && ($vpos - $ifpos) < 80) {
+                $code = substr_replace($code, $search_handler . "\n", $ifpos, 0);
+            }
         }
     }
     file_put_contents($file, $code);

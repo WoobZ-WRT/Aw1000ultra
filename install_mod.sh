@@ -147,6 +147,11 @@ echo ""
 # ------------------------------------------------------------------------------
 echo -e "${CYAN}[5/5] Applying all changes and restarting services...${NC}"
 
+if [ -x /usr/bin/php-cgi ]; then
+    grep -q "\.php=/usr/bin/php-cgi" /etc/config/uhttpd || uci add_list uhttpd.main.interpreter='.php=/usr/bin/php-cgi'
+    uci commit uhttpd
+fi
+
 rm -rf /tmp/luci-indexcache* /tmp/luci-modulecache/
 /etc/init.d/uhttpd restart
 /etc/init.d/network restart > /dev/null 2>&1

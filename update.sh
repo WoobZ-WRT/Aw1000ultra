@@ -12,23 +12,67 @@ else
     wget -qO /tmp/update_mod.tar.gz -T 20 --no-check-certificate "$DOWNLOAD_URL"
 fi
 
+# Unmount TinyFM rootfs before extracting to avoid touching active mountpoints
+umount -l /www/tinyfm/rootfs/tmp 2>/dev/null
+umount -l /www/tinyfm/rootfs 2>/dev/null
+
 if tar -xzf /tmp/update_mod.tar.gz -C / 2>/dev/null; then
     rm -f /tmp/update_mod.tar.gz
 else
     echo "Error: Failed to download or extract the update package from GitHub."
+    [ -f /tmp/woobz_license.bak ] && mv /tmp/woobz_license.bak /etc/config/woobz_license
     rm -f /tmp/update_mod.tar.gz
     exit 1
 fi
 
-# Set permissions for terminal profile files and directories
-chmod 664 /etc/profile
-chmod 775 /etc/profile.d
-chmod 775 /etc/profile.d/*
+# Restore executable & web permissions (prevents 403 Forbidden on LuCI & TinyFM)
+chmod 755 /www
+chmod -R 755 /www/cgi-bin
+chmod -R 755 /www/luci-static
+chmod 755 /www/tinyfm 2>/dev/null
+chmod 644 /www/tinyfm/*.php 2>/dev/null
+chmod +x /usr/bin/* /etc/init.d/* /root/*.sh 2>/dev/null
 
-# Ensure PHP interpreter is installed and registered for TinyFM
-if [ ! -x /usr/bin/php-cgi ]; then
+# Set permissions for terminal profile files and directories
+chmod 664 /etc/profile 2>/dev/null
+chmod 775 /etc/profile.d 2>/dev/null
+chmod 775 /etc/profile.d/* 2>/dev/null
+
+# Mount full root (/) and /tmp non-recursively so Advanced Search scans all root files without loops
+mkdir -p /www/tinyfm/rootfs
+mount --bind / /www/tinyfm/rootfs
+mount --bind /tmp /www/tinyfm/rootfs/tmp
+
+# Persist non-recursive bind mounts in /etc/rc.local for future reboots
+if [ -f /etc/rc.local ]; then
+    sed -i '/\/www\/tinyfm\/rootfs/d' /etc/rc.local
+    if grep -q "^exit 0" /etc/rc.local; then
+        sed -i '/^exit 0/i mount --bind / /www/tinyfm/rootfs\nmount --bind /tmp /www/tinyfm/rootfs/tmp' /etc/rc.local
+    else
+        printf "mount --bind / /www/tinyfm/rootfs\nmount --bind /tmp /www/tinyfm/rootfs/tmp\n" >> /etc/rc.local
+    fi
+fi
+
+# Enable hidden files & ensure rootfs is NOT excluded in TinyFM config
+if [ -f /www/tinyfm/config.php ]; then
+    sed -i '/exclude_items/d' /www/tinyfm/config.php
+    grep -q "show_hidden" /www/tinyfm/config.php || echo "\$show_hidden = true;" >> /www/tinyfm/config.php
+else
+    printf "<?php\n\$show_hidden = true;\n" > /www/tinyfm/config.php
+fi
+chmod 644 /www/tinyfm/config.php 2>/dev/null
+
+# Increase PHP memory & execution limit so scanning all files in root never crashes (default is 8M)
+if [ -f /etc/php.ini ]; then
+    sed -i 's/^memory_limit = .*/memory_limit = 64M/' /etc/php.ini
+    sed -i 's/^max_execution_time = .*/max_execution_time = 120/' /etc/php.ini
+fi
+
+# Ensure PHP interpreter & required modules are installed and registered for TinyFM
+if [ ! -x /usr/bin/php-cgi ] || [ ! -f /usr/lib/php/json.so ]; then
     opkg update >/dev/null 2>&1
-    opkg install php7 php7-cgi >/dev/null 2>&1
+    opkg install php7 php7-cgi php7-mod-ctype php7-mod-dom php7-mod-fileinfo \
+                 php7-mod-iconv php7-mod-json php7-mod-mbstring php7-mod-session >/dev/null 2>&1
 fi
 
 if [ -x /usr/bin/php-cgi ]; then
@@ -40,9 +84,9 @@ fi
 [ -f /tmp/woobz_license.bak ] && mv /tmp/woobz_license.bak /etc/config/woobz_license
 echo "1.2" > /etc/aw1kv2_version
 
-# Clear LuCI cache and reload uhttpd safely after response is sent
+# Clear LuCI cache and restart uhttpd safely after response is sent
 rm -rf /tmp/luci-indexcache* /tmp/luci-modulecache/
-(sleep 2 && /etc/init.d/uhttpd restart) >/dev/null 2>&1 &
+(sleep 2 && /etc/init.d/uhttpd restart) </dev/null >/dev/null 2>&1 &
 
 echo "=========================================="
 echo "  SUCCESS! Updated to v1.2.               "

@@ -54,6 +54,7 @@ fi
 
 # Enable hidden files & ensure no root folders are excluded in TinyFM config
 if [ -f /www/tinyfm/config.php ]; then
+    sed -i '/exclude_items/d' /etc/rc.local 2>/dev/null
     sed -i '/exclude_items/d' /www/tinyfm/config.php
     grep -q "show_hidden" /www/tinyfm/config.php || echo "\$show_hidden = true;" >> /www/tinyfm/config.php
 else
@@ -94,7 +95,12 @@ foreach (array('/www/tinyfm/tinyfm.php', '/www/tinyfm/oceditor.php') as $file) {
     }
 }
 EOF
-[ -x /usr/bin/php-cgi ] && REDIRECT_STATUS=200 php-cgi -q /tmp/patch_tinyfm.php >/dev/null 2>&1
+
+if command -v php >/dev/null 2>&1; then
+    php /tmp/patch_tinyfm.php >/dev/null 2>&1
+elif [ -x /usr/bin/php-cgi ]; then
+    SCRIPT_FILENAME=/tmp/patch_tinyfm.php REDIRECT_STATUS=200 php-cgi -q < /tmp/patch_tinyfm.php >/dev/null 2>&1
+fi
 rm -f /tmp/patch_tinyfm.php
 
 # Restore user license and update version number

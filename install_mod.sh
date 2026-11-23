@@ -66,6 +66,9 @@ echo -e "${YELLOW}  Modem will reboot in 3 seconds. Refresh your      ${NC}"
 echo -e "${YELLOW}  browser after 1-2 minutes.                        ${NC}"
 echo -e "${CYAN}====================================================${NC}"
 
+uci set woobz_license.status.activated='0'
+uci commit woobz_license
+
 rm -f "$0" /tmp/install_mod.sh
 sleep 3
 sync && reboot

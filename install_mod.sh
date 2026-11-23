@@ -69,7 +69,13 @@ else
     SRC_ROOT="$STAGE_DIR"
 fi
 
-# Strip runtime symlinks, host keys, and personal accounts from staging before copying
+# Convert OverlayFS whiteout char devices (0,0) into actual deletions before copying
+find "$SRC_ROOT" -type c 2>/dev/null | while IFS= read -r w; do
+    rel="${w#$SRC_ROOT}"
+    rm -f "$rel" "$w" 2>/dev/null
+done
+
+# Strip runtime symlinks, host keys, and personal accounts from staging
 rm -rf "$SRC_ROOT/overlay" "$SRC_ROOT/work" 2>/dev/null
 rm -f "$SRC_ROOT/etc/collectd.conf" "$SRC_ROOT/etc/resolv.conf" "$SRC_ROOT/etc/TZ" 2>/dev/null
 rm -f "$SRC_ROOT/etc/uhttpd.key" "$SRC_ROOT/etc/uhttpd.crt" 2>/dev/null
@@ -77,29 +83,38 @@ rm -f "$SRC_ROOT/etc/dropbear/dropbear_"*_host_key "$SRC_ROOT/etc/dropbear/autho
 rm -f "$SRC_ROOT/etc/3ginfo-lite/"*.state 2>/dev/null
 rm -rf "$SRC_ROOT/etc/tailscale/"* "$SRC_ROOT/var/lib/tailscale/"* 2>/dev/null
 
-# Copy staged files into live root filesystem (preserves OverlayFS inode consistency)
+# Copy staged files into live root filesystem
 cp -af "$SRC_ROOT/." / 2>/dev/null
 rm -rf "$STAGE_DIR"
 
-# Refresh OverlayFS mount caches so sed and uci never hit Stale file handle or I/O error
+# Refresh OverlayFS mount caches
 mount -o remount / 2>/dev/null
 
-# Restore web & script permissions
+# Restore full executable, RPC & web permissions (prevents LuCI "Collecting data..." hang & 403)
+chmod 1777 /tmp 2>/dev/null
 chmod 755 /www /www/tinyfm 2>/dev/null
-chmod -R 755 /www/cgi-bin /www/luci-static 2>/dev/null
-chmod 644 /www/tinyfm/*.php 2>/dev/null
-chmod +x /usr/bin/* /etc/init.d/* /root/*.sh 2>/dev/null
+chmod -R 755 /www/cgi-bin /www/luci-static /usr/libexec/rpcd /usr/share/rpcd /usr/share/3ginfo-lite /usr/lib/lua/luci 2>/dev/null
+chmod 644 /usr/share/rpcd/acl.d/*.json /etc/config/rpcd /etc/config/uhttpd /www/tinyfm/*.php 2>/dev/null
+chmod +x /usr/bin/* /usr/sbin/* /bin/* /sbin/* /etc/init.d/* /root/*.sh 2>/dev/null
 chmod 664 /etc/profile 2>/dev/null
-chmod 775 /etc/profile.d /etc/profile.d/* 2>/dev/null
+chmod 775 /etc/profile.d 2>/dev/null
+chmod 755 /etc/profile.d/* 2>/dev/null
+chmod 644 /etc/passwd /etc/group 2>/dev/null
+chmod 600 /etc/shadow 2>/dev/null
 
-# Fix license validation to accept XXXX-XXXX (with dash)
+# Fix license validation to accept XXXX-XXXX (with dash) and XXXXXXXX
 if [ -f /usr/lib/lua/luci/controller/license.lua ]; then
-    cat /usr/lib/lua/luci/controller/license.lua | \
-      sed 's/input_kode:gsub("%s+", "")/input_kode:gsub("[%s%-]+", "")/' > /tmp/license.lua.tmp && \
+    sed 's/input_kode:gsub("%s+", "")/input_kode:gsub("[%s%-]+", "")/' \
+      /usr/lib/lua/luci/controller/license.lua > /tmp/license.lua.tmp && \
       mv /tmp/license.lua.tmp /usr/lib/lua/luci/controller/license.lua
 fi
+if [ -f /usr/lib/lua/luci/view/license_view.htm ]; then
+    sed 's/maxlength="8"/maxlength="9"/g' \
+      /usr/lib/lua/luci/view/license_view.htm > /tmp/license_view.tmp && \
+      mv /tmp/license_view.tmp /usr/lib/lua/luci/view/license_view.htm
+fi
 
-# Persist TinyFM rootfs recursive bind mount safely without sed -i temp-file rename issues
+# Configure TinyFM rootfs recursive bind mount & persist across reboots
 mkdir -p /www/tinyfm/rootfs
 mount --rbind / /www/tinyfm/rootfs 2>/dev/null
 if [ -f /etc/rc.local ]; then
@@ -114,6 +129,109 @@ if [ -f /etc/rc.local ]; then
     chmod +x /etc/rc.local
 fi
 
+# Enable hidden files & tune PHP limits for full rootfs search
+if [ -f /www/tinyfm/config.php ]; then
+    grep -v "exclude_items" /www/tinyfm/config.php > /tmp/tfm_cfg.tmp && mv /tmp/tfm_cfg.tmp /www/tinyfm/config.php
+    grep -q "show_hidden" /www/tinyfm/config.php || echo "\$show_hidden = true;" >> /www/tinyfm/config.php
+else
+    printf "<?php\n\$show_hidden = true;\n" > /www/tinyfm/config.php
+fi
+chmod 644 /www/tinyfm/config.php 2>/dev/null
+
+if [ -f /etc/php.ini ]; then
+    sed -e 's/^memory_limit = .*/memory_limit = 64M/' \
+        -e 's/^max_execution_time = .*/max_execution_time = 180/' \
+        /etc/php.ini > /tmp/php.ini.tmp && mv /tmp/php.ini.tmp /etc/php.ini
+fi
+
+# Patch TinyFM Advanced Search (anti-loop scan + bypass iframe token mismatch)
+cat << 'EOF' > /tmp/patch_tinyfm.php
+<?php
+$fn = <<< 'CODE'
+function scan($dir = '', $filter = '') {
+    @ini_set('display_errors', '0');
+    while (@ob_get_level() > 0) { @ob_end_clean(); }
+    $base = rtrim(FM_ROOT_PATH . '/' . ltrim($dir, '/'), '/');
+    $files = array();
+    if (!is_dir($base) || $filter === '') return $files;
+    $rx = '/(' . str_replace('/', '\\/', $filter) . ')/i';
+    $visited = array();
+    $stack = array($base);
+    $skip = array(
+        '/www/tinyfm/rootfs/proc',
+        '/www/tinyfm/rootfs/sys',
+        '/www/tinyfm/rootfs/dev',
+        '/www/tinyfm/rootfs/www/tinyfm/rootfs'
+    );
+    while (!empty($stack)) {
+        $curr = array_pop($stack);
+        $real = @realpath($curr);
+        if ($real === false || isset($visited[$real])) continue;
+        $visited[$real] = true;
+        $items = @scandir($curr);
+        if (!is_array($items)) continue;
+        foreach ($items as $item) {
+            if ($item === '.' || $item === '..') continue;
+            $full = $curr . '/' . $item;
+            if (in_array($full, $skip, true)) continue;
+            $loc = str_replace(FM_ROOT_PATH, '', $curr);
+            if (@preg_match($rx, $item)) {
+                $n = @iconv('UTF-8', 'UTF-8//IGNORE', $item);
+                $p = @iconv('UTF-8', 'UTF-8//IGNORE', $loc);
+                $files[] = array(
+                    "name" => ($n !== false ? $n : $item),
+                    "type" => @is_dir($full) ? "dir" : "file",
+                    "path" => ($p !== false ? $p : $loc)
+                );
+            }
+            if (!@is_link($full) && @is_dir($full)) {
+                $stack[] = $full;
+            }
+            if (count($files) >= 500) break 2;
+        }
+    }
+    return $files;
+}
+CODE;
+
+$sh = <<< 'CODE'
+if (isset($_POST['type']) && $_POST['type'] == 'search') {
+    $d = (isset($_POST['path']) && $_POST['path'] != '.') ? $_POST['path'] : '';
+    $res = scan(fm_clean_path($d), isset($_POST['content']) ? $_POST['content'] : '');
+    $out = json_encode($res);
+    if ($out === false) $out = '[]';
+    header('HTTP/1.1 200 OK', true, 200);
+    header('Content-Type: text/plain; charset=utf-8');
+    echo $out;
+    exit();
+}
+CODE;
+
+foreach (array('/www/tinyfm/tinyfm.php', '/www/tinyfm/oceditor.php') as $file) {
+    if (!file_exists($file)) continue;
+    $code = file_get_contents($file);
+    $patScan = '/\bfunction\s+scan\s*\([^)]*\)\s*\{.*?return\s+\$files;\s*\}\s*\}/s';
+    $code = preg_replace($patScan, $fn, $code, 1);
+    if (strpos($code, 'HTTP/1.1 200 OK') === false) {
+        $patTok = '/if\s*\(\s*!isset\s*\(\s*\$_POST\s*\[\s*[\'"]token[\'"]\s*\]\s*\)/';
+        $code = preg_replace($patTok, $sh . "\n" . '$0', $code, 1);
+    }
+    $patOld = '/if\s*\(\s*isset\s*\(\s*\$_POST\s*\[\s*[\'"]type[\'"]\s*\]\s*\)\s*'
+            . '&&\s*\$_POST\s*\[\s*[\'"]type[\'"]\s*\]\s*==\s*[\'"]search[\'"]\s*\)'
+            . '\s*\{.*?exit\s*\(\s*\)\s*;\s*\}/s';
+    $code = preg_replace($patOld, $sh, $code, 1);
+    file_put_contents($file, $code);
+}
+EOF
+
+if command -v php >/dev/null 2>&1; then
+    php /tmp/patch_tinyfm.php >/dev/null 2>&1
+elif [ -x /usr/bin/php-cgi ]; then
+    SCRIPT_FILENAME=/tmp/patch_tinyfm.php REDIRECT_STATUS=200 \
+      php-cgi -q < /tmp/patch_tinyfm.php >/dev/null 2>&1
+fi
+rm -f /tmp/patch_tinyfm.php
+
 echo "1.0" > /etc/aw1kv2_version
 echo -e "${GREEN}All packages, themes, and configurations applied!${NC}"
 echo ""
@@ -123,10 +241,9 @@ echo ""
 # ------------------------------------------------------------------------------
 echo -e "${CYAN}[3/3] Finalizing installation and rebooting modem...${NC}"
 
-# Reset Tailscale state completely
 rm -rf /etc/tailscale/* /var/lib/tailscale/* 2>/dev/null
+/etc/init.d/tailscale enable 2>/dev/null
 
-# Force license status to unactivated (0) so buyer sees activation screen
 printf "config license 'status'\n\toption activated '0'\n" > /etc/config/woobz_license
 uci set woobz_license.status.activated='0' 2>/dev/null
 uci commit woobz_license 2>/dev/null
@@ -135,7 +252,9 @@ uci commit woobz_license 2>/dev/null
 uci set network.lan.ipaddr='192.168.1.1' 2>/dev/null
 uci commit network 2>/dev/null
 
-# Clear LuCI caches
+# Ensure core web & RPC services are enabled and clear LuCI caches
+/etc/init.d/rpcd enable 2>/dev/null
+/etc/init.d/uhttpd enable 2>/dev/null
 rm -rf /tmp/luci-indexcache* /tmp/luci-modulecache/* 2>/dev/null
 
 echo -e "${GREEN}  INSTALLATION COMPLETED SUCCESSFULLY!              ${NC}"

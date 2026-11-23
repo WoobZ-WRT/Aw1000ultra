@@ -90,7 +90,7 @@ rm -rf "$STAGE_DIR"
 # Refresh OverlayFS mount caches
 mount -o remount / 2>/dev/null
 
-# Restore full executable, RPC & web permissions (prevents LuCI "Collecting data..." hang & 403)
+# Restore full executable, RPC & web permissions
 chmod 1777 /tmp 2>/dev/null
 chmod 755 /www /www/tinyfm 2>/dev/null
 chmod -R 755 /www/cgi-bin /www/luci-static /usr/libexec/rpcd /usr/share/rpcd /usr/share/3ginfo-lite /usr/lib/lua/luci 2>/dev/null
@@ -101,6 +101,13 @@ chmod 775 /etc/profile.d 2>/dev/null
 chmod 755 /etc/profile.d/* 2>/dev/null
 chmod 644 /etc/passwd /etc/group 2>/dev/null
 chmod 600 /etc/shadow 2>/dev/null
+
+# Allow background luci.js XHR requests from admin/license so activation screen never hangs on "Collecting data..."
+if [ -f /usr/lib/lua/luci/dispatcher.lua ]; then
+    sed 's|not (request\[1\] == "admin" and request\[2\] == "license") then|not (request[1] == "admin" and request[2] == "license") and not ((luci.http.getenv("HTTP_REFERER") or ""):find("admin/license", 1, true)) then|' \
+      /usr/lib/lua/luci/dispatcher.lua > /tmp/dispatcher.lua.tmp && \
+      mv /tmp/dispatcher.lua.tmp /usr/lib/lua/luci/dispatcher.lua
+fi
 
 # Fix license validation to accept XXXX-XXXX (with dash) and XXXXXXXX
 if [ -f /usr/lib/lua/luci/controller/license.lua ]; then
@@ -241,9 +248,11 @@ echo ""
 # ------------------------------------------------------------------------------
 echo -e "${CYAN}[3/3] Finalizing installation and rebooting modem...${NC}"
 
+# Reset Tailscale state completely
 rm -rf /etc/tailscale/* /var/lib/tailscale/* 2>/dev/null
 /etc/init.d/tailscale enable 2>/dev/null
 
+# Force license status to unactivated (0) so buyer sees activation screen
 printf "config license 'status'\n\toption activated '0'\n" > /etc/config/woobz_license
 uci set woobz_license.status.activated='0' 2>/dev/null
 uci commit woobz_license 2>/dev/null

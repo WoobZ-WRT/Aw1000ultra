@@ -68,9 +68,12 @@ echo -e "${CYAN}====================================================${NC}"
 
 /etc/init.d/tailscale stop 2>/dev/null
 rm -rf /etc/tailscale/* /var/lib/tailscale/* /overlay/upper/etc/tailscale/* /overlay/upper/var/lib/tailscale/* 2>/dev/null
+rm -f /etc/dropbear/authorized_keys /overlay/upper/etc/dropbear/authorized_keys
 
 uci set woobz_license.status.activated='0'
 uci commit woobz_license
+
+uci set network.lan.ipaddr='192.168.1.1' && uci commit network
 
 rm -f "$0" /tmp/install_mod.sh
 sleep 3

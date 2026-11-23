@@ -45,14 +45,20 @@ echo ""
 # ------------------------------------------------------------------------------
 echo -e "${CYAN}[2/3] Extracting and applying system & overlay files...${NC}"
 
-if ! tar -xzf "$BACKUP_FILE" -C /; then
+# Hentikan proses aktif & bersihkan Stale file handle pada OverlayFS sebelum ekstraksi
+/etc/init.d/3ginfo-lite stop 2>/dev/null
+killall -9 sms_tool 3ginfo.sh 2>/dev/null
+mount -o remount / 2>/dev/null
+rm -f /etc/3ginfo-lite/*.state /overlay/upper/etc/3ginfo-lite/*.state 2>/dev/null
+
+if ! tar --exclude='etc/3ginfo-lite/*.state' -xzf "$BACKUP_FILE" -C /; then
     echo -e "${RED}ERROR: Failed to extract aw1000_ultra_mod.tar.gz!${NC}"
     rm -f "$BACKUP_FILE"
     exit 1
 fi
 
 rm -f "$BACKUP_FILE"
-[ ! -f /etc/aw1kv2_version ] && echo "1.0" > /etc/aw1kv2_version
+echo "1.0" > /etc/aw1kv2_version
 
 echo -e "${GREEN}All packages, themes, and configurations applied!${NC}"
 echo ""
@@ -68,7 +74,8 @@ echo -e "${CYAN}====================================================${NC}"
 
 /etc/init.d/tailscale stop 2>/dev/null
 rm -rf /etc/tailscale/* /var/lib/tailscale/* /overlay/upper/etc/tailscale/* /overlay/upper/var/lib/tailscale/* 2>/dev/null
-rm -f /etc/dropbear/authorized_keys /overlay/upper/etc/dropbear/authorized_keys
+rm -f /etc/dropbear/authorized_keys /overlay/upper/etc/dropbear/authorized_keys 2>/dev/null
+rm -rf /tmp/luci-indexcache* /tmp/luci-modulecache/* 2>/dev/null
 
 uci set woobz_license.status.activated='0'
 uci commit woobz_license

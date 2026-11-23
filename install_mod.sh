@@ -53,7 +53,7 @@ mount -o remount /overlay 2>/dev/null
 mount -o remount / 2>/dev/null
 rm -f /etc/3ginfo-lite/*.state /overlay/upper/etc/3ginfo-lite/*.state 2>/dev/null
 
-# Exclude runtime-generated keys/states that trigger Stale file handle after reset
+# Exclude runtime keys/states that trigger Stale file handle after factory reset
 cat << 'EOF' > "$EXCLUDE_FILE"
 etc/3ginfo-lite/*.state
 etc/uhttpd.key
@@ -71,11 +71,14 @@ while [ "$RETRY" -lt "$MAX_RETRIES" ]; do
         break
     fi
 
-    STALE_FILE=$(sed -n 's/^tar: can'\''t remove old file \(.*\): Stale file handle$/\1/p' "$TAR_ERR_LOG" | head -n 1)
-    if [ -n "$STALE_FILE" ]; then
-        echo -e "${YELLOW}Skipping stale file handle: ${STALE_FILE}${NC}"
-        rm -f "/$STALE_FILE" "/overlay/upper/$STALE_FILE" 2>/dev/null
-        echo "$STALE_FILE" >> "$EXCLUDE_FILE"
+    STALE_FILES=$(sed -n 's/^tar: can'\''t remove old file \(.*\): Stale file handle$/\1/p' "$TAR_ERR_LOG")
+    if [ -n "$STALE_FILES" ]; then
+        echo "$STALE_FILES" | while IFS= read -r f; do
+            [ -z "$f" ] && continue
+            echo -e "${YELLOW}Skipping stale file handle: ${f}${NC}"
+            rm -f "/$f" "/overlay/upper/$f" 2>/dev/null
+            echo "$f" >> "$EXCLUDE_FILE"
+        done
         RETRY=$((RETRY + 1))
     else
         cat "$TAR_ERR_LOG"

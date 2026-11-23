@@ -16,13 +16,14 @@ echo -e "${CYAN}====================================================${NC}"
 echo ""
 
 BACKUP_FILE="/tmp/aw1000_ultra_mod.tar.gz"
+EXCLUDE_FILE="/tmp/tar_exclude.txt"
 DOWNLOAD_URL="https://github.com/WoobZ-WRT/Aw1000ultra/releases/download/v1.0/aw1000_ultra_mod.tar.gz"
 
 # ------------------------------------------------------------------------------
 # STAGE 1: DOWNLOAD TELSTRA 5G MOD PACKAGE
 # ------------------------------------------------------------------------------
 echo -e "${CYAN}[1/3] Downloading modification package from GitHub...${NC}"
-rm -f "$BACKUP_FILE"
+rm -f "$BACKUP_FILE" "$EXCLUDE_FILE"
 
 if command -v curl >/dev/null 2>&1; then
     curl -4 -fL --retry 3 --retry-delay 3 --connect-timeout 15 -k -o "$BACKUP_FILE" "$DOWNLOAD_URL"
@@ -45,19 +46,20 @@ echo ""
 # ------------------------------------------------------------------------------
 echo -e "${CYAN}[2/3] Extracting and applying system & overlay files...${NC}"
 
-# Hentikan proses aktif & bersihkan Stale file handle pada OverlayFS sebelum ekstraksi
 /etc/init.d/3ginfo-lite stop 2>/dev/null
 killall -9 sms_tool 3ginfo.sh 2>/dev/null
 mount -o remount / 2>/dev/null
 rm -f /etc/3ginfo-lite/*.state /overlay/upper/etc/3ginfo-lite/*.state 2>/dev/null
 
-if ! tar --exclude='etc/3ginfo-lite/*.state' -xzf "$BACKUP_FILE" -C /; then
+printf "etc/3ginfo-lite/*.state\n" > "$EXCLUDE_FILE"
+
+if ! tar -x -z -X "$EXCLUDE_FILE" -f "$BACKUP_FILE" -C /; then
     echo -e "${RED}ERROR: Failed to extract aw1000_ultra_mod.tar.gz!${NC}"
-    rm -f "$BACKUP_FILE"
+    rm -f "$BACKUP_FILE" "$EXCLUDE_FILE"
     exit 1
 fi
 
-rm -f "$BACKUP_FILE"
+rm -f "$BACKUP_FILE" "$EXCLUDE_FILE"
 echo "1.0" > /etc/aw1kv2_version
 
 echo -e "${GREEN}All packages, themes, and configurations applied!${NC}"

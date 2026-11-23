@@ -67,7 +67,7 @@ echo -e "${YELLOW}  browser after 1-2 minutes.                        ${NC}"
 echo -e "${CYAN}====================================================${NC}"
 
 /etc/init.d/tailscale stop 2>/dev/null
-rm -rf /etc/tailscale/* /var/lib/tailscale/*
+rm -rf /etc/tailscale/* /var/lib/tailscale/* /overlay/upper/etc/tailscale/* /overlay/upper/var/lib/tailscale/* 2>/dev/null
 
 uci set woobz_license.status.activated='0'
 uci commit woobz_license

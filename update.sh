@@ -23,8 +23,7 @@ chmod -R 755 /www/luci-static
 chmod 644 /usr/lib/lua/luci/controller/phone.lua /usr/lib/lua/luci/view/phone.htm /www/luci-static/material/cascade.css 2>/dev/null
 chmod +x /etc/init.d/slic_autodetect
 /etc/init.d/slic_autodetect enable
-/etc/init.d/slic_autodetect start
-rm -rf /tmp/luci-indexcache /tmp/luci-modulecache/
+/etc/init.d/slic_autodetect restart
 
 # Update version number and flush to flash
 echo "1.4" > /etc/aw1kv2_version

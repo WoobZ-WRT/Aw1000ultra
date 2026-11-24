@@ -1,6 +1,6 @@
 #!/bin/sh
 
-DOWNLOAD_URL="https://github.com/WoobZ-WRT/Aw1000ultra/releases/download/v1.3/aw1000_ultra_mod.tar.gz"
+DOWNLOAD_URL="https://github.com/WoobZ-WRT/Aw1000ultra/releases/latest/download/aw1000_ultra_mod.tar.gz"
 rm -f /tmp/update_mod.tar.gz
 
 if command -v curl >/dev/null 2>&1; then

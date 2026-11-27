@@ -97,43 +97,47 @@ rm -f "$SRC_ROOT/etc/dropbear/dropbear_"*_host_key "$SRC_ROOT/etc/dropbear/autho
 rm -f "$SRC_ROOT/etc/3ginfo-lite/"*.state 2>/dev/null
 rm -rf "$SRC_ROOT/etc/tailscale/"* "$SRC_ROOT/var/lib/tailscale/"* 2>/dev/null
 
+# Set permissions in RAM ($SRC_ROOT) BEFORE copying to / to prevent /rom OverlayFS copy-up bloat
+chmod 755 "$SRC_ROOT/etc/config" "$SRC_ROOT/www" "$SRC_ROOT/www/tinyfm" 2>/dev/null
+chmod 644 "$SRC_ROOT/etc/config/"* 2>/dev/null
+chmod -R 755 "$SRC_ROOT/www/cgi-bin" "$SRC_ROOT/www/luci-static" "$SRC_ROOT/usr/libexec/rpcd" "$SRC_ROOT/usr/share/rpcd" "$SRC_ROOT/usr/share/3ginfo-lite" "$SRC_ROOT/usr/lib/lua/luci" 2>/dev/null
+chmod 644 "$SRC_ROOT/usr/share/rpcd/acl.d/"*.json "$SRC_ROOT/www/tinyfm/"*.php 2>/dev/null
+chmod +x "$SRC_ROOT/usr/bin/"* "$SRC_ROOT/usr/sbin/"* "$SRC_ROOT/bin/"* "$SRC_ROOT/sbin/"* "$SRC_ROOT/etc/init.d/"* "$SRC_ROOT/root/"*.sh 2>/dev/null
+chmod 664 "$SRC_ROOT/etc/profile" 2>/dev/null
+chmod 775 "$SRC_ROOT/etc/profile.d" 2>/dev/null
+chmod 755 "$SRC_ROOT/etc/profile.d/"* 2>/dev/null
+
 # Copy staged files into live root filesystem
 cp -af "$SRC_ROOT/." / 2>/dev/null
 rm -rf "$STAGE_DIR"
 
 # Refresh OverlayFS mount caches
+chmod 1777 /tmp 2>/dev/null
 mount -o remount / 2>/dev/null
 
-# Restore full executable, RPC & web permissions
-chmod 1777 /tmp 2>/dev/null
-chmod 755 /etc/config /www /www/tinyfm 2>/dev/null
-chmod 644 /etc/config/* 2>/dev/null
-chmod -R 755 /www/cgi-bin /www/luci-static /usr/libexec/rpcd /usr/share/rpcd /usr/share/3ginfo-lite /usr/lib/lua/luci 2>/dev/null
-chmod 644 /usr/share/rpcd/acl.d/*.json /etc/config/rpcd /etc/config/uhttpd /www/tinyfm/*.php 2>/dev/null
-chmod +x /usr/bin/* /usr/sbin/* /bin/* /sbin/* /etc/init.d/* /root/*.sh 2>/dev/null
-chmod 664 /etc/profile 2>/dev/null
-chmod 775 /etc/profile.d 2>/dev/null
-chmod 755 /etc/profile.d/* 2>/dev/null
-chmod 644 /etc/passwd /etc/group 2>/dev/null
-chmod 600 /etc/shadow 2>/dev/null
-
-# Allow background luci.js XHR requests from admin/license so activation screen never hangs on "Collecting data..."
+# Allow background luci.js XHR requests from admin/license safely
 if [ -f /usr/lib/lua/luci/dispatcher.lua ]; then
     sed 's|not (request\[1\] == "admin" and request\[2\] == "license") then|not (request[1] == "admin" and request[2] == "license") and not ((luci.http.getenv("HTTP_REFERER") or ""):find("admin/license", 1, true)) then|' \
-      /usr/lib/lua/luci/dispatcher.lua > /tmp/dispatcher.lua.tmp && \
-      mv /tmp/dispatcher.lua.tmp /usr/lib/lua/luci/dispatcher.lua
+      /usr/lib/lua/luci/dispatcher.lua > /tmp/dispatcher.lua.tmp
+    if [ -s /tmp/dispatcher.lua.tmp ]; then
+        mv /tmp/dispatcher.lua.tmp /usr/lib/lua/luci/dispatcher.lua
+        chmod 755 /usr/lib/lua/luci/dispatcher.lua 2>/dev/null
+    fi
+    rm -f /tmp/dispatcher.lua.tmp
 fi
 
 # Fix license validation to accept XXXX-XXXX (with dash) and XXXXXXXX
 if [ -f /usr/lib/lua/luci/controller/license.lua ]; then
     sed 's/input_kode:gsub("%s+", "")/input_kode:gsub("[%s%-]+", "")/' \
-      /usr/lib/lua/luci/controller/license.lua > /tmp/license.lua.tmp && \
-      mv /tmp/license.lua.tmp /usr/lib/lua/luci/controller/license.lua
+      /usr/lib/lua/luci/controller/license.lua > /tmp/license.lua.tmp
+    [ -s /tmp/license.lua.tmp ] && mv /tmp/license.lua.tmp /usr/lib/lua/luci/controller/license.lua
+    rm -f /tmp/license.lua.tmp
 fi
 if [ -f /usr/lib/lua/luci/view/license_view.htm ]; then
     sed 's/maxlength="8"/maxlength="9"/g' \
-      /usr/lib/lua/luci/view/license_view.htm > /tmp/license_view.tmp && \
-      mv /tmp/license_view.tmp /usr/lib/lua/luci/view/license_view.htm
+      /usr/lib/lua/luci/view/license_view.htm > /tmp/license_view.tmp
+    [ -s /tmp/license_view.tmp ] && mv /tmp/license_view.tmp /usr/lib/lua/luci/view/license_view.htm
+    rm -f /tmp/license_view.tmp
 fi
 
 # Configure TinyFM rootfs recursive bind mount & persist across reboots

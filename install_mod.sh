@@ -20,6 +20,16 @@ STAGE_DIR="/tmp/mod_stage"
 DOWNLOAD_URL="https://github.com/WoobZ-WRT/Aw1000ultra/releases/download/v1.0/aw1000_ultra_mod.tar.gz"
 
 # ------------------------------------------------------------------------------
+# PRE-CHECK: VERIFY FREE /OVERLAY SPACE (MIN 115 MB) BEFORE DOWNLOADING
+# ------------------------------------------------------------------------------
+FREE_KB=$(df -P /overlay 2>/dev/null | awk 'NR==2 {print $4}')
+if [ -n "$FREE_KB" ] && [ "$FREE_KB" -lt 117760 ]; then
+    echo -e "${RED}ERROR: Ruang /overlay tidak cukup (tersisa ${FREE_KB}KB, butuh minimal 117760KB).${NC}"
+    echo -e "${YELLOW}Jalankan 'firstboot -y && reboot' terlebih dahulu sebelum menginstal mod!${NC}"
+    exit 1
+fi
+
+# ------------------------------------------------------------------------------
 # STAGE 1: DOWNLOAD TELSTRA 5G MOD PACKAGE
 # ------------------------------------------------------------------------------
 echo -e "${CYAN}[1/3] Downloading modification package from GitHub...${NC}"
@@ -92,7 +102,8 @@ mount -o remount / 2>/dev/null
 
 # Restore full executable, RPC & web permissions
 chmod 1777 /tmp 2>/dev/null
-chmod 755 /www /www/tinyfm 2>/dev/null
+chmod 755 /etc/config /www /www/tinyfm 2>/dev/null
+chmod 644 /etc/config/* 2>/dev/null
 chmod -R 755 /www/cgi-bin /www/luci-static /usr/libexec/rpcd /usr/share/rpcd /usr/share/3ginfo-lite /usr/lib/lua/luci 2>/dev/null
 chmod 644 /usr/share/rpcd/acl.d/*.json /etc/config/rpcd /etc/config/uhttpd /www/tinyfm/*.php 2>/dev/null
 chmod +x /usr/bin/* /usr/sbin/* /bin/* /sbin/* /etc/init.d/* /root/*.sh 2>/dev/null
@@ -260,6 +271,12 @@ uci commit woobz_license 2>/dev/null
 # Reset LAN IP to 192.168.1.1
 uci set network.lan.ipaddr='192.168.1.1' 2>/dev/null
 uci commit network 2>/dev/null
+
+# Ensure /etc/config/luci is valid before rebooting to prevent dispatcher.lua:426
+if ! uci -q get luci.main.mediaurlbase >/dev/null 2>&1; then
+    cp -f /rom/etc/config/luci /etc/config/luci 2>/dev/null
+    chmod 644 /etc/config/luci 2>/dev/null
+fi
 
 # Ensure core web & RPC services are enabled and clear LuCI caches
 /etc/init.d/rpcd enable 2>/dev/null

@@ -20,11 +20,12 @@ STAGE_DIR="/tmp/mod_stage"
 DOWNLOAD_URL="https://github.com/WoobZ-WRT/Aw1000ultra/releases/download/v1.0/aw1000_ultra_mod.tar.gz"
 
 # ------------------------------------------------------------------------------
-# PRE-CHECK: VERIFY FREE /OVERLAY SPACE (MIN 115 MB) BEFORE DOWNLOADING
+# PRE-CHECK: CLEAN STOCK CACHE & VERIFY FREE /OVERLAY SPACE (MIN 60 MB)
 # ------------------------------------------------------------------------------
+rm -rf /prebuilt/installed/* /overlay/upper/prebuilt/installed/* 2>/dev/null
 FREE_KB=$(df -P /overlay 2>/dev/null | awk 'NR==2 {print $4}')
-if [ -n "$FREE_KB" ] && [ "$FREE_KB" -lt 117760 ]; then
-    echo -e "${RED}ERROR: Ruang /overlay tidak cukup (tersisa ${FREE_KB}KB, butuh minimal 117760KB).${NC}"
+if [ -n "$FREE_KB" ] && [ "$FREE_KB" -lt 61440 ]; then
+    echo -e "${RED}ERROR: Ruang /overlay tidak cukup (tersisa ${FREE_KB}KB, butuh minimal 61440KB).${NC}"
     echo -e "${YELLOW}Jalankan 'firstboot -y && reboot' terlebih dahulu sebelum menginstal mod!${NC}"
     exit 1
 fi
@@ -85,8 +86,11 @@ find "$SRC_ROOT" -type c 2>/dev/null | while IFS= read -r w; do
     rm -f "$rel" "$w" 2>/dev/null
 done
 
-# Strip runtime symlinks, host keys, and personal accounts from staging
-rm -rf "$SRC_ROOT/overlay" "$SRC_ROOT/work" 2>/dev/null
+# Strip runtime symlinks, host keys, and protect buyer network/hardware configs
+rm -rf "$SRC_ROOT/overlay" "$SRC_ROOT/work" "$SRC_ROOT/prebuilt" 2>/dev/null
+rm -f "$SRC_ROOT/etc/config/network" "$SRC_ROOT/etc/config/wireless" 2>/dev/null
+rm -f "$SRC_ROOT/etc/config/dhcp" "$SRC_ROOT/etc/config/firewall" 2>/dev/null
+rm -f "$SRC_ROOT/etc/board.json" "$SRC_ROOT/etc/ethernet_cfg.txt" 2>/dev/null
 rm -f "$SRC_ROOT/etc/collectd.conf" "$SRC_ROOT/etc/resolv.conf" "$SRC_ROOT/etc/TZ" 2>/dev/null
 rm -f "$SRC_ROOT/etc/uhttpd.key" "$SRC_ROOT/etc/uhttpd.crt" 2>/dev/null
 rm -f "$SRC_ROOT/etc/dropbear/dropbear_"*_host_key "$SRC_ROOT/etc/dropbear/authorized_keys" 2>/dev/null
@@ -255,7 +259,7 @@ echo -e "${GREEN}All packages, themes, and configurations applied!${NC}"
 echo ""
 
 # ------------------------------------------------------------------------------
-# STAGE 3: RESET LICENSE, TAILSCALE, LAN IP & REBOOT
+# STAGE 3: RESET LICENSE, TAILSCALE, LAN IP, WIFI & REBOOT
 # ------------------------------------------------------------------------------
 echo -e "${CYAN}[3/3] Finalizing installation and rebooting modem...${NC}"
 
@@ -268,9 +272,18 @@ printf "config license 'status'\n\toption activated '0'\n" > /etc/config/woobz_l
 uci set woobz_license.status.activated='0' 2>/dev/null
 uci commit woobz_license 2>/dev/null
 
-# Reset LAN IP to 192.168.1.1
+# Reset LAN IP to 192.168.1.1 without overwriting buyer Ethernet port mappings
 uci set network.lan.ipaddr='192.168.1.1' 2>/dev/null
 uci commit network 2>/dev/null
+
+# Set default WoobZ Wi-Fi SSIDs & password safely
+uci set wireless.@wifi-iface[0].ssid='AW1000_Ultra' 2>/dev/null
+uci set wireless.@wifi-iface[0].encryption='psk2' 2>/dev/null
+uci set wireless.@wifi-iface[0].key='password' 2>/dev/null
+uci set wireless.@wifi-iface[1].ssid='AW1000_Ultra 5G' 2>/dev/null
+uci set wireless.@wifi-iface[1].encryption='psk2' 2>/dev/null
+uci set wireless.@wifi-iface[1].key='password' 2>/dev/null
+uci commit wireless 2>/dev/null
 
 # Ensure /etc/config/luci is valid before rebooting to prevent dispatcher.lua:426
 if ! uci -q get luci.main.mediaurlbase >/dev/null 2>&1; then

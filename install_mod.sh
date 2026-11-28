@@ -102,7 +102,7 @@ rm -f "$SRC_ROOT/etc/dropbear/dropbear_"*_host_key "$SRC_ROOT/etc/dropbear/autho
 rm -rf "$SRC_ROOT/etc/tailscale/"* "$SRC_ROOT/var/lib/tailscale/"* 2>/dev/null
 
 # Fix ownership & permissions in RAM ($SRC_ROOT) BEFORE copying to /
-chown -R root:root "$SRC_ROOT" 2>/dev/null
+chown -hR root:root "$SRC_ROOT" 2>/dev/null
 chmod -R a+rX "$SRC_ROOT" 2>/dev/null
 find "$SRC_ROOT" -type d -exec chmod 755 {} + 2>/dev/null
 chmod 644 "$SRC_ROOT/etc/config/"* 2>/dev/null
@@ -127,7 +127,8 @@ if [ -f /usr/share/3ginfo-lite/3ginfo.sh ] && [ ! -f /usr/share/3ginfo-lite/3gin
     mv /usr/share/3ginfo-lite/3ginfo.sh /usr/share/3ginfo-lite/3ginfo_raw.sh
     cat << 'EOF' > /usr/share/3ginfo-lite/3ginfo.sh
 #!/bin/sh
-/usr/share/3ginfo-lite/3ginfo_raw.sh "$@" 2>/dev/null | sed -n '/^{/,$p'
+export PATH=/usr/sbin:/usr/bin:/sbin:/bin
+/usr/share/3ginfo-lite/3ginfo_raw.sh "$@" 2>/dev/null | sed -n "/^{/,9999p"
 EOF
     chmod 755 /usr/share/3ginfo-lite/3ginfo.sh /usr/share/3ginfo-lite/3ginfo_raw.sh 2>/dev/null
 fi

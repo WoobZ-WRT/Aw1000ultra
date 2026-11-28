@@ -86,10 +86,11 @@ find "$SRC_ROOT" -type c 2>/dev/null | while IFS= read -r w; do
     rm -f "$rel" "$w" 2>/dev/null
 done
 
-# Strip runtime symlinks, host keys, and protect buyer network/hardware configs
+# Strip runtime symlinks, host keys, and protect buyer network/RPC/hardware configs
 rm -rf "$SRC_ROOT/overlay" "$SRC_ROOT/work" "$SRC_ROOT/prebuilt" 2>/dev/null
 rm -f "$SRC_ROOT/etc/config/network" "$SRC_ROOT/etc/config/wireless" 2>/dev/null
 rm -f "$SRC_ROOT/etc/config/dhcp" "$SRC_ROOT/etc/config/firewall" 2>/dev/null
+rm -f "$SRC_ROOT/etc/config/rpcd" "$SRC_ROOT/etc/config/uhttpd" 2>/dev/null
 rm -f "$SRC_ROOT/etc/board.json" "$SRC_ROOT/etc/ethernet_cfg.txt" 2>/dev/null
 rm -f "$SRC_ROOT/etc/collectd.conf" "$SRC_ROOT/etc/resolv.conf" "$SRC_ROOT/etc/TZ" 2>/dev/null
 rm -f "$SRC_ROOT/etc/uhttpd.key" "$SRC_ROOT/etc/uhttpd.crt" 2>/dev/null
@@ -289,11 +290,23 @@ uci set wireless.@wifi-iface[1].encryption='psk2' 2>/dev/null
 uci set wireless.@wifi-iface[1].key='password' 2>/dev/null
 uci commit wireless 2>/dev/null
 
-# Ensure /etc/config/luci is valid before rebooting to prevent dispatcher.lua:426
-if ! uci -q get luci.main.mediaurlbase >/dev/null 2>&1; then
+# Restore stock /etc/config/rpcd to prevent ubus/LuCI permission lockouts
+cp -f /rom/etc/config/rpcd /etc/config/rpcd 2>/dev/null
+chmod 644 /etc/config/rpcd 2>/dev/null
+
+# Validate /etc/config/luci syntax and apply Material theme safely
+if ! uci -q show luci >/dev/null 2>&1; then
     cp -f /rom/etc/config/luci /etc/config/luci 2>/dev/null
-    chmod 644 /etc/config/luci 2>/dev/null
 fi
+if ! uci -q get luci.main.mediaurlbase >/dev/null 2>&1; then
+    printf "config core 'main'\n\toption lang 'auto'\n\toption mediaurlbase '/luci-static/bootstrap'\n\toption resourcebase '/luci-static/resources'\n\nconfig internal 'themes'\n\toption Bootstrap '/luci-static/bootstrap'\n" > /etc/config/luci
+fi
+if [ -d /www/luci-static/material ]; then
+    uci set luci.main.mediaurlbase='/luci-static/material' 2>/dev/null
+    uci set luci.themes.Material='/luci-static/material' 2>/dev/null
+    uci commit luci 2>/dev/null
+fi
+chmod 644 /etc/config/luci 2>/dev/null
 
 # Ensure core web & RPC services are enabled and clear LuCI caches
 /etc/init.d/rpcd enable 2>/dev/null

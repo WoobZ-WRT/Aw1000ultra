@@ -111,6 +111,10 @@ chmod 664 "$SRC_ROOT/etc/profile" 2>/dev/null
 chmod 775 "$SRC_ROOT/etc/profile.d" 2>/dev/null
 chmod 755 "$SRC_ROOT/etc/profile.d/"* 2>/dev/null
 
+chown -R root:root "$SRC_ROOT" 2>/dev/null
+find "$SRC_ROOT" -type d -exec chmod 755 {} + 2>/dev/null
+
+
 # Copy staged files into live root filesystem
 cp -af "$SRC_ROOT/." / 2>/dev/null
 rm -rf "$STAGE_DIR"

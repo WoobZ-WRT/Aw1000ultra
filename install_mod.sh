@@ -20,8 +20,11 @@ STAGE_DIR="/tmp/mod_stage"
 DOWNLOAD_URL="https://github.com/WoobZ-WRT/Aw1000ultra/releases/download/v1.0/aw1000_ultra_mod.tar.gz"
 
 # ------------------------------------------------------------------------------
-# PRE-CHECK: CLEAN STOCK CACHE & VERIFY FREE /OVERLAY SPACE (MIN 60 MB)
+# PRE-CHECK: SET DNS, CLEAN STOCK CACHE & VERIFY FREE /OVERLAY SPACE (MIN 60 MB)
 # ------------------------------------------------------------------------------
+rm -f /etc/resolv.conf 2>/dev/null
+printf "nameserver 1.1.1.1\nnameserver 8.8.8.8\n" > /etc/resolv.conf
+
 rm -rf /prebuilt/installed/* /overlay/upper/prebuilt/installed/* 2>/dev/null
 FREE_KB=$(df -P /overlay 2>/dev/null | awk 'NR==2 {print $4}')
 if [ -n "$FREE_KB" ] && [ "$FREE_KB" -lt 61440 ]; then
@@ -264,7 +267,7 @@ echo -e "${GREEN}All packages, themes, and configurations applied!${NC}"
 echo ""
 
 # ------------------------------------------------------------------------------
-# STAGE 3: RESET LICENSE, TAILSCALE, LAN IP, WIFI & REBOOT
+# STAGE 3: RESET LICENSE, DNS, TAILSCALE, LAN IP, WIFI & REBOOT
 # ------------------------------------------------------------------------------
 echo -e "${CYAN}[3/3] Finalizing installation and rebooting modem...${NC}"
 
@@ -280,6 +283,12 @@ uci commit woobz_license 2>/dev/null
 # Reset LAN IP to 192.168.1.1 without overwriting buyer Ethernet port mappings
 uci set network.lan.ipaddr='192.168.1.1' 2>/dev/null
 uci commit network 2>/dev/null
+
+# Set persistent public DNS servers (1.1.1.1 & 8.8.8.8) in dnsmasq
+uci -q delete dhcp.@dnsmasq[0].server 2>/dev/null
+uci add_list dhcp.@dnsmasq[0].server='1.1.1.1' 2>/dev/null
+uci add_list dhcp.@dnsmasq[0].server='8.8.8.8' 2>/dev/null
+uci commit dhcp 2>/dev/null
 
 # Set default WoobZ Wi-Fi SSIDs & password safely
 uci set wireless.@wifi-iface[0].ssid='AW1000_Ultra' 2>/dev/null

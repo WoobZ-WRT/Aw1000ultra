@@ -86,16 +86,16 @@ find "$SRC_ROOT" -type c 2>/dev/null | while IFS= read -r w; do
     rm -f "$rel" "$w" 2>/dev/null
 done
 
-# Strip runtime symlinks, host keys, and protect buyer network/RPC/hardware configs
+# Strip runtime symlinks, host keys, and protect buyer network/RPC/modem configs
 rm -rf "$SRC_ROOT/overlay" "$SRC_ROOT/work" "$SRC_ROOT/prebuilt" 2>/dev/null
 rm -f "$SRC_ROOT/etc/config/network" "$SRC_ROOT/etc/config/wireless" 2>/dev/null
 rm -f "$SRC_ROOT/etc/config/dhcp" "$SRC_ROOT/etc/config/firewall" 2>/dev/null
 rm -f "$SRC_ROOT/etc/config/rpcd" "$SRC_ROOT/etc/config/uhttpd" 2>/dev/null
+rm -rf "$SRC_ROOT/etc/config/3ginfo"* "$SRC_ROOT/etc/3ginfo"* "$SRC_ROOT/etc/init.d/3ginfo"* 2>/dev/null
 rm -f "$SRC_ROOT/etc/board.json" "$SRC_ROOT/etc/ethernet_cfg.txt" 2>/dev/null
 rm -f "$SRC_ROOT/etc/collectd.conf" "$SRC_ROOT/etc/resolv.conf" "$SRC_ROOT/etc/TZ" 2>/dev/null
 rm -f "$SRC_ROOT/etc/uhttpd.key" "$SRC_ROOT/etc/uhttpd.crt" 2>/dev/null
 rm -f "$SRC_ROOT/etc/dropbear/dropbear_"*_host_key "$SRC_ROOT/etc/dropbear/authorized_keys" 2>/dev/null
-rm -f "$SRC_ROOT/etc/3ginfo-lite/"*.state 2>/dev/null
 rm -rf "$SRC_ROOT/etc/tailscale/"* "$SRC_ROOT/var/lib/tailscale/"* 2>/dev/null
 
 # Set permissions in RAM ($SRC_ROOT) BEFORE copying to / to prevent /rom OverlayFS copy-up bloat
@@ -290,9 +290,12 @@ uci set wireless.@wifi-iface[1].encryption='psk2' 2>/dev/null
 uci set wireless.@wifi-iface[1].key='password' 2>/dev/null
 uci commit wireless 2>/dev/null
 
-# Restore stock /etc/config/rpcd to prevent ubus/LuCI permission lockouts
+# Keep stock /etc/config/rpcd and /etc/config/3ginfo intact from /rom
 cp -f /rom/etc/config/rpcd /etc/config/rpcd 2>/dev/null
 chmod 644 /etc/config/rpcd 2>/dev/null
+cp -af /rom/etc/config/3ginfo* /etc/config/ 2>/dev/null
+cp -af /rom/etc/3ginfo* /etc/ 2>/dev/null
+chmod 644 /etc/config/3ginfo* 2>/dev/null
 
 # Validate /etc/config/luci syntax and apply Material theme safely
 if ! uci -q show luci >/dev/null 2>&1; then

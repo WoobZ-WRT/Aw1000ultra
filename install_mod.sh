@@ -101,19 +101,18 @@ rm -f "$SRC_ROOT/etc/uhttpd.key" "$SRC_ROOT/etc/uhttpd.crt" 2>/dev/null
 rm -f "$SRC_ROOT/etc/dropbear/dropbear_"*_host_key "$SRC_ROOT/etc/dropbear/authorized_keys" 2>/dev/null
 rm -rf "$SRC_ROOT/etc/tailscale/"* "$SRC_ROOT/var/lib/tailscale/"* 2>/dev/null
 
-# Set permissions in RAM ($SRC_ROOT) BEFORE copying to / to prevent /rom OverlayFS copy-up bloat
-chmod 755 "$SRC_ROOT/etc/config" "$SRC_ROOT/www" "$SRC_ROOT/www/tinyfm" 2>/dev/null
+# Fix ownership & permissions in RAM ($SRC_ROOT) BEFORE copying to /
+chown -R root:root "$SRC_ROOT" 2>/dev/null
+chmod -R a+rX "$SRC_ROOT" 2>/dev/null
+find "$SRC_ROOT" -type d -exec chmod 755 {} + 2>/dev/null
 chmod 644 "$SRC_ROOT/etc/config/"* 2>/dev/null
-chmod -R 755 "$SRC_ROOT/www/cgi-bin" "$SRC_ROOT/www/luci-static" "$SRC_ROOT/usr/libexec/rpcd" "$SRC_ROOT/usr/share/rpcd" "$SRC_ROOT/usr/share/3ginfo-lite" "$SRC_ROOT/usr/lib/lua/luci" 2>/dev/null
+chmod -R 755 "$SRC_ROOT/www/cgi-bin" "$SRC_ROOT/www/luci-static" "$SRC_ROOT/usr/libexec/rpcd" "$SRC_ROOT/usr/lib/rpcd" "$SRC_ROOT/usr/share/rpcd" "$SRC_ROOT/usr/share/3ginfo-lite" "$SRC_ROOT/usr/lib/lua/luci" 2>/dev/null
 chmod 644 "$SRC_ROOT/usr/share/rpcd/acl.d/"*.json "$SRC_ROOT/www/tinyfm/"*.php 2>/dev/null
 chmod +x "$SRC_ROOT/usr/bin/"* "$SRC_ROOT/usr/sbin/"* "$SRC_ROOT/bin/"* "$SRC_ROOT/sbin/"* "$SRC_ROOT/etc/init.d/"* "$SRC_ROOT/root/"*.sh 2>/dev/null
 chmod 664 "$SRC_ROOT/etc/profile" 2>/dev/null
 chmod 775 "$SRC_ROOT/etc/profile.d" 2>/dev/null
 chmod 755 "$SRC_ROOT/etc/profile.d/"* 2>/dev/null
-
-chown -R root:root "$SRC_ROOT" 2>/dev/null
-find "$SRC_ROOT" -type d -exec chmod 755 {} + 2>/dev/null
-
+sed -i 's/\r$//' "$SRC_ROOT/usr/libexec/rpcd/"* "$SRC_ROOT/usr/share/3ginfo-lite/"* 2>/dev/null
 
 # Copy staged files into live root filesystem
 cp -af "$SRC_ROOT/." / 2>/dev/null
@@ -122,6 +121,16 @@ rm -rf "$STAGE_DIR"
 # Refresh OverlayFS mount caches
 chmod 1777 /tmp 2>/dev/null
 mount -o remount / 2>/dev/null
+
+# Strip libtrm debug output from 3ginfo.sh so rpcd always receives pure JSON
+if [ -f /usr/share/3ginfo-lite/3ginfo.sh ] && [ ! -f /usr/share/3ginfo-lite/3ginfo_raw.sh ]; then
+    mv /usr/share/3ginfo-lite/3ginfo.sh /usr/share/3ginfo-lite/3ginfo_raw.sh
+    cat << 'EOF' > /usr/share/3ginfo-lite/3ginfo.sh
+#!/bin/sh
+/usr/share/3ginfo-lite/3ginfo_raw.sh "$@" 2>/dev/null | sed -n '/^{/,$p'
+EOF
+    chmod 755 /usr/share/3ginfo-lite/3ginfo.sh /usr/share/3ginfo-lite/3ginfo_raw.sh 2>/dev/null
+fi
 
 # Allow background luci.js XHR requests from admin/license safely
 if [ -f /usr/lib/lua/luci/dispatcher.lua ]; then
